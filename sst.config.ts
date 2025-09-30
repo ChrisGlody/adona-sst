@@ -26,8 +26,9 @@ export default $config({
       path: "app",
       link: [userPool],
       environment: {
-        USER_POOL_ID: userPool.id,
-        USER_POOL_CLIENT_ID: webClient.id,
+        NEXT_PUBLIC_COGNITO_USER_POOL_ID: userPool.id,
+        NEXT_PUBLIC_COGNITO_WEB_CLIENT_ID: webClient.id,
+        NEXT_PUBLIC_AWS_REGION: $app.providers?.aws.region,
       }
     });
   },
