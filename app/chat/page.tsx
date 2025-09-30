@@ -9,6 +9,7 @@ import { getIdToken } from "@/lib/auth";
 
 export default function ChatPage() {
   const [loading, setLoading] = useState(true);
+  const [registeringTool, setRegisteringTool] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const router = useRouter();
 
@@ -45,6 +46,19 @@ export default function ChatPage() {
     console.log(data);
   }
 
+  async function handleRegisterTool() {
+    setRegisteringTool(true);
+    try {
+    const res = await fetch("/api/tools", {
+      method: "POST",
+    });
+    setRegisteringTool(false);
+    } catch (err) {
+      console.error(err);
+      setRegisteringTool(false);
+    }
+  }
+
   if (loading) {
     return <div className="p-6">Loading…</div>;
   }
@@ -66,7 +80,7 @@ export default function ChatPage() {
         </Button>
       </div>
       <div  className="rounded-lg border p-4">Chat goes here.</div>
-      <Button onClick={handleTokenRefresh}>Refresh Token</Button>
+      <Button onClick={handleRegisterTool} disabled={registeringTool}>{registeringTool ? "Registering tool..." : "Register Tool"}</Button>
     </div>
   );
 }
