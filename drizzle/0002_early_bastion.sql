@@ -1,0 +1,1 @@
+ALTER TABLE "tools" ALTER COLUMN "id" SET DATA TYPE text;

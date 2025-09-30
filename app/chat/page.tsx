@@ -81,6 +81,12 @@ export default function ChatPage() {
       </div>
       <div  className="rounded-lg border p-4">Chat goes here.</div>
       <Button onClick={handleRegisterTool} disabled={registeringTool}>{registeringTool ? "Registering tool..." : "Register Tool"}</Button>
+      <div>
+        {process.env.DATABASE_URL}
+        {process.env.OPENAI_API_KEY}
+        {process.env.QDRANT_URL}
+        {process.env.QDRANT_API_KEY}
+      </div>
     </div>
   );
 }
