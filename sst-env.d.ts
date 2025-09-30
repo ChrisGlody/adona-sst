@@ -9,6 +9,14 @@ declare module "sst" {
       "type": "sst.aws.Nextjs"
       "url": string
     }
+    "ToolRunner": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
+    "ToolsBucket": {
+      "name": string
+      "type": "sst.aws.Bucket"
+    }
     "UserPool": {
       "id": string
       "type": "sst.aws.CognitoUserPool"
