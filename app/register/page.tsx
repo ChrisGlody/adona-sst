@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
   const [password, setPassword] = useState("");
@@ -14,7 +15,9 @@ export default function RegisterPage() {
   const [step, setStep] = useState<"signUp" | "confirm">("signUp");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
+  
   const handleSignUp = async () => {
     setLoading(true);
     setError(null);
@@ -40,7 +43,7 @@ export default function RegisterPage() {
         username: email,
         confirmationCode: code,
       });
-      alert("Registration confirmed. You can now sign in.");
+      router.replace("/login");
     } catch (err: unknown) {
       console.error("Confirm error:", err);
       setError("Confirmation failed");

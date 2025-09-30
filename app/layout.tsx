@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import Header from "@/app/header";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,33 +35,5 @@ export default function RootLayout({
         </Providers>
       </body>
     </html>
-  );
-}
-
-function Header() {
-  // Client boundary for signOut button
-  return (
-    <div className="w-full border-b">
-      <div className="mx-auto max-w-5xl px-4 h-14 flex items-center gap-3">
-        <Link href="/" className="font-medium">
-          Adona
-        </Link>
-        <div className="ml-auto flex items-center gap-2">
-          <Link href="/login">
-            <Button variant="ghost" className="h-8">
-              Login
-            </Button>
-          </Link>
-          <Link href="/register">
-            <Button variant="ghost" className="h-8">
-              Register
-            </Button>
-          </Link>
-          <Link href="/chat">
-            <Button className="h-8">Chat</Button>
-          </Link>
-        </div>
-      </div>
-    </div>
   );
 }
