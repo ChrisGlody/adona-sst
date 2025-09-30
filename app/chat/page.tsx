@@ -4,6 +4,8 @@ import { getCurrentUser, fetchAuthSession, signOut } from "aws-amplify/auth";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { getIdToken } from "@/lib/auth";
+
 
 export default function ChatPage() {
   const [loading, setLoading] = useState(true);
@@ -30,6 +32,19 @@ export default function ChatPage() {
     };
   }, [router]);
 
+  async function handleTokenRefresh() {
+    const token = await getIdToken();
+    if (!token) {
+      // not signed in
+      return;
+    }
+    const res = await fetch("/api/secure", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    console.log(data);
+  }
+
   if (loading) {
     return <div className="p-6">Loading…</div>;
   }
@@ -50,7 +65,8 @@ export default function ChatPage() {
           Logout
         </Button>
       </div>
-      <div className="rounded-lg border p-4">Chat goes here.</div>
+      <div  className="rounded-lg border p-4">Chat goes here.</div>
+      <Button onClick={handleTokenRefresh}>Refresh Token</Button>
     </div>
   );
 }

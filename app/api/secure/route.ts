@@ -1,9 +1,10 @@
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 
-const jwks = createRemoteJWKSet(new URL(`https://cognito-idp.${process.env.NEXT_PUBLIC_REGION}.amazonaws.com/${process.env.NEXT_PUBLIC_USER_POOL_ID}/.well-known/jwks.json`));
+const url = `https://cognito-idp.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${process.env.NEXT_PUBLIC_USER_POOL_ID}/.well-known/jwks.json`;
+const jwks = createRemoteJWKSet(new URL(url));
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get('Authorization');
   if (!authHeader) {
     return new Response(JSON.stringify({ error: 'Missing token' }), { status: 401 });
   }
