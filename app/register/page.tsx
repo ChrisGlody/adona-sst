@@ -3,6 +3,9 @@
 import { signUp, UserAttributeKey } from "aws-amplify/auth";
 import { confirmSignUp } from "aws-amplify/auth";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function RegisterPage() {
   const [password, setPassword] = useState("");
@@ -47,47 +50,45 @@ export default function RegisterPage() {
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        maxWidth: 360,
-      }}
-    >
-        <p>Sign up</p>
-        <p>USER_POOL_ID: {process.env.NEXT_PUBLIC_USER_POOL_ID}</p>
-        <p>USER_POOL_CLIENT_ID: {process.env.NEXT_PUBLIC_USER_POOL_CLIENT_ID} </p>
-      {step === "signUp" ? (
-        <>
-          <input
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            placeholder="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button onClick={handleSignUp} disabled={loading}>
-            {loading ? "Creating account..." : "Sign Up"}
-          </button>
-        </>
-      ) : (
-        <>
-          <input
-            placeholder="Confirmation Code"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-          />
-          <button onClick={handleConfirm} disabled={loading}>
-            {loading ? "Confirming..." : "Confirm Sign Up"}
-          </button>
-        </>
-      )}
-      {error ? <div style={{ color: "red" }}>{error}</div> : null}
-    </div>
-  );
+    <div className="min-h-[60vh] w-full flex items-center justify-center p-6">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Sign up</CardTitle>
+          <CardDescription>Create your account to start chatting.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {step === "signUp" ? (
+            <>
+              <Input
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}  
+              />             
+                <Input
+                  placeholder="Password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <Button onClick={handleSignUp} disabled={loading} className="w-full">
+                  {loading ? "Creating account..." : "Sign Up"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Input
+                  placeholder="Confirmation Code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+                <Button onClick={handleConfirm} disabled={loading}>
+                  {loading ? "Confirming..." : "Confirm Sign Up"}
+                </Button>
+              </>
+            )}
+            {error ? <div className="text-sm text-destructive">{error}</div> : null}
+          </CardContent>
+        </Card>
+      </div>
+    );
 }
