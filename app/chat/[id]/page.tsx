@@ -28,7 +28,6 @@ function modelToUI(msgs: ModelMessage[]): UIMessage[] {
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
   const user = await getAuthUser();
-  console.log("===== chat page",user);
   if (!user) return null;
 
   const [modelMessages, userChats] = await Promise.all([

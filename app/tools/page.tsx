@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { getIdToken } from "@/lib/auth";
+import Header from "@/components/header";
 
 interface Tool {
   id: string;
@@ -217,101 +217,104 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Signed in as <span className="font-bold">{username}</span>
-        </div>
-      </div>
-
-      {/* Tool Registration Section */}
-      <Card className="p-4">
-        <h3 className="text-lg font-semibold mb-4">Register New Tool</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              Tool Definition (JSON)
-            </label>
-            <textarea
-              className="w-full h-40 p-3 border rounded-md font-mono text-sm"
-              value={toolDefinition}
-              onChange={(e) => setToolDefinition(e.target.value)}
-              placeholder="Paste your tool definition JSON here..."
-            />
+    <>
+      <Header />
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Signed in as <span className="font-bold">{username}</span>
           </div>
-          <Button
-            onClick={handleRegisterTool}
-            disabled={registeringTool}
-            className="w-full"
-          >
-            {registeringTool ? "Registering tool..." : "Register Tool"}
-          </Button>
         </div>
-      </Card>
 
-      {/* Tool Selection and Running Section */}
-      <Card className="p-4">
-        <h3 className="text-lg font-semibold mb-4">Run Tool</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">
-              Select Tool
-            </label>
-            <select
-              className="w-full p-2 border rounded-md"
-              value={selectedTool?.id || ""}
-              onChange={(e) => handleToolSelect(e.target.value)}
-              disabled={fetchingTools}
+        {/* Tool Registration Section */}
+        <Card className="p-4">
+          <h3 className="text-lg font-semibold mb-4">Register New Tool</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Tool Definition (JSON)
+              </label>
+              <textarea
+                className="w-full h-40 p-3 border rounded-md font-mono text-sm"
+                value={toolDefinition}
+                onChange={(e) => setToolDefinition(e.target.value)}
+                placeholder="Paste your tool definition JSON here..."
+              />
+            </div>
+            <Button
+              onClick={handleRegisterTool}
+              disabled={registeringTool}
+              className="w-full"
             >
-              <option value="">Choose a tool...</option>
-              {tools.map((tool) => (
-                <option key={tool.id} value={tool.id}>
-                  {tool.name} - {tool.description}
-                </option>
-              ))}
-            </select>
+              {registeringTool ? "Registering tool..." : "Register Tool"}
+            </Button>
           </div>
+        </Card>
 
-          {selectedTool && (
-            <div className="space-y-3">
-              <h4 className="font-medium">Input Parameters</h4>
-              <div className="grid gap-3">
-                {selectedTool.inputSchema?.properties &&
-                  Object.entries(selectedTool.inputSchema.properties).map(
-                    ([key, schema]: [string, any]) =>
-                      renderInputField(key, schema)
-                  )}
+        {/* Tool Selection and Running Section */}
+        <Card className="p-4">
+          <h3 className="text-lg font-semibold mb-4">Run Tool</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Select Tool
+              </label>
+              <select
+                className="w-full p-2 border rounded-md"
+                value={selectedTool?.id || ""}
+                onChange={(e) => handleToolSelect(e.target.value)}
+                disabled={fetchingTools}
+              >
+                <option value="">Choose a tool...</option>
+                {tools.map((tool) => (
+                  <option key={tool.id} value={tool.id}>
+                    {tool.name} - {tool.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedTool && (
+              <div className="space-y-3">
+                <h4 className="font-medium">Input Parameters</h4>
+                <div className="grid gap-3">
+                  {selectedTool.inputSchema?.properties &&
+                    Object.entries(selectedTool.inputSchema.properties).map(
+                      ([key, schema]: [string, any]) =>
+                        renderInputField(key, schema)
+                    )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <Button
-            onClick={handleRunTool}
-            disabled={runningTool || !selectedTool}
-            className="w-full"
-          >
-            {runningTool ? "Running tool..." : "Run Tool"}
-          </Button>
+            <Button
+              onClick={handleRunTool}
+              disabled={runningTool || !selectedTool}
+              className="w-full"
+            >
+              {runningTool ? "Running tool..." : "Run Tool"}
+            </Button>
 
-          {(runError || runOutput) && (
-            <div className="space-y-2">
-              {runError && (
-                <div className="text-sm text-red-600 border border-red-200 bg-red-50 rounded-md p-3">
-                  {runError}
-                </div>
-              )}
-              {runOutput && (
-                <div>
-                  <h4 className="font-medium mb-1">Result</h4>
-                  <pre className="text-sm p-3 border rounded-md bg-muted whitespace-pre-wrap break-words overflow-auto max-h-96">
-                    {JSON.stringify(runOutput, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </Card>
-    </div>
+            {(runError || runOutput) && (
+              <div className="space-y-2">
+                {runError && (
+                  <div className="text-sm text-red-600 border border-red-200 bg-red-50 rounded-md p-3">
+                    {runError}
+                  </div>
+                )}
+                {runOutput && (
+                  <div>
+                    <h4 className="font-medium mb-1">Result</h4>
+                    <pre className="text-sm p-3 border rounded-md bg-muted whitespace-pre-wrap break-words overflow-auto max-h-96">
+                      {JSON.stringify(runOutput, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+    </>
   );
 }

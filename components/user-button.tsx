@@ -23,7 +23,7 @@ export default function UserButton() {
     return (
         <div>
             <p>{username}</p>
-            <Button onClick={handleLogout}>Logout</Button>
+            <Button variant="outline" onClick={handleLogout}>Logout</Button>
         </div>
     );
 }

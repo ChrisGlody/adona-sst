@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Brain, SquarePenIcon, Menu } from "lucide-react";
+import { Brain, SquarePenIcon, Menu, Wrench } from "lucide-react";
 import Chat from "./chat-main";
 import type { UIMessage } from "ai";
 import UserButton from "@/components/user-button";
@@ -32,14 +32,24 @@ function SidebarContent({
             <Brain className="w-6 h-6" />
           </Link>
         </div>
-        <Link
-          href="/chat"
-          className="hover:bg-stone-200 px-2 py-2 rounded-md text-sm flex items-center gap-2 font-light mt-4"
-          onClick={onChatSelect}
-        >
-          <SquarePenIcon className="w-4 h-4" />
-          New chat
-        </Link>
+        <div>
+          <Link
+            href="/chat"
+            className="hover:bg-stone-200 px-2 py-2 rounded-md text-sm flex items-center gap-2 font-light mt-4"
+            onClick={onChatSelect}
+          >
+            <SquarePenIcon className="w-4 h-4" />
+            New chat
+          </Link>
+          <Link
+            href="/tools"
+            className="hover:bg-stone-200 px-2 py-2 rounded-md text-sm flex items-center gap-2 font-light"
+            onClick={onChatSelect}
+          >
+            <Wrench className="w-4 h-4" />
+            Tools
+          </Link>
+        </div>
         <div className="space-y-1 mt-4">
           <div>
             <span className="text-sm text-stone-400 px-2 font-light">
