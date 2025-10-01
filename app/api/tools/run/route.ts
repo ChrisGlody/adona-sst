@@ -29,6 +29,7 @@ export async function POST(req: Request) {
 
   // Use runner lambda for s3-inline type
   if (tool.type === "s3-inline") {
+    console.log("Running s3-inline tool", toolId, input);
     // invoke your generic runner
     const runnerArn = process.env.TOOL_RUNNER_ARN!;
     const resp = await lambda.invoke({
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
       Payload: JSON.stringify({ toolId, input }),
     }).promise();
     const payload = JSON.parse(Buffer.from(resp.Payload as any).toString());
+    console.log("S3-inline tool result", payload);
     return NextResponse.json({ result: payload });
   }
 

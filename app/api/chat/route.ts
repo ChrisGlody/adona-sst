@@ -1,6 +1,6 @@
 import { convertToModelMessages, createIdGenerator, type UIMessage, type ModelMessage } from "ai";
 import { chat } from "@/lib/ai/memory-chat";
-import { loadChat, saveChat } from "@/lib/db/queries";
+import { loadChat, saveChat, getUserTools } from "@/lib/db/queries";
 import { revalidatePath } from "next/cache";
 import { Mem0Memory } from "@/lib/memory/mem0";
 import { getAuthUser } from "@/lib/auth.server";
@@ -20,9 +20,12 @@ export async function POST(req: Request) {
   const [lastAsModel] = convertToModelMessages([message])
   const modelMessages: ModelMessage[] = [...previous, lastAsModel]
 
+  // NEW: fetch registered tools for this user
+  const tools = await getUserTools(userId)
+
   const response = await chat(modelMessages, userId, memory, (status) => {
     console.log(status)
-  })
+  }, tools)
 
   response.consumeStream()
 

@@ -11,11 +11,11 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import type { UIMessage } from "ai";
 
 const placeholders = [
-  "What do you want to remember?",
-  "What are your plans?",
-  "What are your goals?",
-  "What are your preferences?",
-  "What are your habits?",
+  "Ask anything to chat...",
+  "Run a registered tool...",
+  "Save something to memory...",
+  "Ask me to recall a memory...",
+  "Combine tools and memory in one request...",
 ];
 
 export default function Chat({
@@ -190,11 +190,11 @@ export default function Chat({
             <div className="text-center mb-4">
               <div className="flex items-center justify-center mb-3">
                 <h1 className="text-2xl font-bold">
-                  Hi, I'm Mnemo Your AI Assistant with Memory
+                  Hi, I'm Mnemo — Chat with Tools and Memory
                 </h1>
               </div>
               <p className="text-muted-foreground text-sm font-thin mb-3">
-                I'm here to help you remember everything about you.
+                Ask questions, run tools, and remember what matters.
               </p>
             </div>
           </div>
