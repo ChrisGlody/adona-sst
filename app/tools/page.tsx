@@ -73,8 +73,9 @@ export default function ChatPage() {
       try {
         await fetchAuthSession();
         const user = await getCurrentUser();
+        console.log(user);
         if (!mounted) return;
-        setUsername(user.username ?? "");
+        setUsername(user.signInDetails?.loginId ?? "");
         await fetchTools();
       } catch {
         router.replace("/login");
@@ -220,20 +221,9 @@ export default function ChatPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Signed in as {username}
+          Signed in as <span className="font-bold">{username}</span>
         </div>
-        <Button
-          variant="outline"
-          onClick={async () => {
-            await signOut();
-            router.replace("/login");
-          }}
-        >
-          Logout
-        </Button>
       </div>
-
-      <div className="rounded-lg border p-4">Chat goes here.</div>
 
       {/* Tool Registration Section */}
       <Card className="p-4">

@@ -25,7 +25,7 @@ export default function LoginPage() {
     setError(null);
     try {
       await signIn({ username: email, password });
-      router.replace("/chat");
+      router.replace("/tools");
     } catch (err: unknown) {
       console.error("Login error:", err);
       const errorName = (() => {
@@ -35,7 +35,7 @@ export default function LoginPage() {
         return "";
       })();
       if (errorName === "UserAlreadyAuthenticatedException") {
-        router.replace("/chat");
+        router.replace("/tools");
         return;
       }
       setError("Login failed");

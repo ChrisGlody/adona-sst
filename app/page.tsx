@@ -7,15 +7,7 @@ export default function Home() {
       <main className=" flex flex-col gap-[16px] row-start-2 items-center sm:items-start">
         <div className="text-sm text-muted-foreground">Welcome</div>
         <div className="flex gap-2">
-          <Link href="/login">
-            <Button>Login</Button>
-          </Link>
-          <Link href="/register">
-            <Button variant="secondary">Register</Button>
-          </Link>
-          <Link href="/chat">
-            <Button variant="outline">Go to Chat</Button>
-          </Link>
+      
         </div>
       </main>
     </div>
