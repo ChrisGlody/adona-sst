@@ -1,5 +1,5 @@
 import { db } from "./index"
-import { chats, chatMessages } from "./schema"
+import { chats, chatMessages, tools } from "./schema"
 import { and, asc, desc, eq } from "drizzle-orm"
 import { generateId } from "ai"
 import type { ModelMessage } from "ai"
@@ -102,6 +102,14 @@ export async function saveChat({
   if (inserts.length > 0) {
     await db.insert(chatMessages).values(inserts)
   }
+}
+
+export async function getUserTools(owner: string) {
+  return db.select().from(tools).where(eq(tools.owner, owner))
+}
+
+export async function getUserTool(id: string, owner: string) {
+  return db.select().from(tools).where(and(eq(tools.id, id), eq(tools.owner, owner)))
 }
 
 

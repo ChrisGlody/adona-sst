@@ -1,14 +1,18 @@
 import { Lambda } from "aws-sdk";
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { tools } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { getUserTool } from "@/lib/db/queries";
+import { getAuthUser } from "@/lib/auth.server";
 
 const lambda = new Lambda({ region: process.env.AWS_REGION });
 
 export async function POST(req: Request) {
+  const user = await getAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { toolId, input } = await req.json();
-  const results = await db.select().from(tools).where(eq(tools.id, toolId)).limit(1);
+  const results = await getUserTool(toolId, user.sub);
 
   const tool = results[0];
 
