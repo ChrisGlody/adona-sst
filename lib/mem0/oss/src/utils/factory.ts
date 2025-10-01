@@ -14,7 +14,6 @@ import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
 import { Qdrant } from "../vector_stores/qdrant";
 import { RedisDB } from "../vector_stores/redis";
-import { OllamaLLM } from "../llms/ollama";
 import { MemoryHistoryManager } from "../storage/MemoryHistoryManager";
 import { HistoryManager } from "../storage/base";
 import { GoogleEmbedder } from "../embeddings/google";

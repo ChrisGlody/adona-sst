@@ -6,6 +6,5 @@ export * from "./embeddings/openai";
 export * from "./llms/openai";
 export * from "./llms/openai_structured";
 export * from "./vector_stores/base";
-export * from "./vector_stores/memory";
 export * from "./vector_stores/qdrant";
 export * from "./utils/factory";
