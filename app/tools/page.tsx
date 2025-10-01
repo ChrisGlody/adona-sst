@@ -91,19 +91,6 @@ export default function ChatPage() {
     };
   }, [router]);
 
-  async function handleTokenRefresh() {
-    const token = await getIdToken();
-    if (!token) {
-      // not signed in
-      return;
-    }
-    const res = await fetch("/api/secure", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    console.log(data);
-  }
-
   async function handleRegisterTool() {
     setRegisteringTool(true);
     try {
