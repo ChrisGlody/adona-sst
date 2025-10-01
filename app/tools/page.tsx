@@ -29,6 +29,8 @@ export default function ChatPage() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [toolInputs, setToolInputs] = useState<Record<string, any>>({});
+  const [runOutput, setRunOutput] = useState<any | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
   const [toolDefinition, setToolDefinition] = useState(`{
   "name": "multiply_numbers",
   "description": "Multiplies two numbers together and returns the product.",
@@ -128,6 +130,8 @@ export default function ChatPage() {
 
     setRunningTool(true);
     try {
+      setRunOutput(null);
+      setRunError(null);
       const res = await fetch("/api/tools/run", {
         method: "POST",
         headers: {
@@ -141,8 +145,16 @@ export default function ChatPage() {
 
       const data = await res.json();
       console.log("Tool result:", data);
+      if (!res.ok) {
+        throw new Error(
+          (data && (data.error || data.message)) || "Failed to run tool"
+        );
+      }
+      setRunOutput(data);
     } catch (err) {
       console.error("Error running tool:", err);
+      const message = err instanceof Error ? err.message : "Error running tool";
+      setRunError(message);
     } finally {
       setRunningTool(false);
     }
@@ -293,6 +305,24 @@ export default function ChatPage() {
           >
             {runningTool ? "Running tool..." : "Run Tool"}
           </Button>
+
+          {(runError || runOutput) && (
+            <div className="space-y-2">
+              {runError && (
+                <div className="text-sm text-red-600 border border-red-200 bg-red-50 rounded-md p-3">
+                  {runError}
+                </div>
+              )}
+              {runOutput && (
+                <div>
+                  <h4 className="font-medium mb-1">Result</h4>
+                  <pre className="text-sm p-3 border rounded-md bg-muted whitespace-pre-wrap break-words overflow-auto max-h-96">
+                    {JSON.stringify(runOutput, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Card>
     </div>
