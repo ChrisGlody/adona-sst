@@ -25,6 +25,22 @@ export default function LoginPage() {
     setError(null);
     try {
       await signIn({ username: email, password });
+
+      // Get the token and store it in a server-side cookie
+      const { fetchAuthSession } = await import("aws-amplify/auth");
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+
+      if (token) {
+        await fetch("/api/auth/set-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ token }),
+        });
+      }
+
       router.replace("/tools");
     } catch (err: unknown) {
       console.error("Login error:", err);

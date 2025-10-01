@@ -11,6 +11,11 @@ export default function LogoutPage() {
     (async () => {
       try {
         await signOut();
+
+        // Clear the server-side cookie
+        await fetch("/api/auth/logout", {
+          method: "POST",
+        });
       } catch {
         // ignore
       } finally {
