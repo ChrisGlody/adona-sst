@@ -8,5 +8,4 @@ export * from "./llms/openai_structured";
 export * from "./vector_stores/base";
 export * from "./vector_stores/memory";
 export * from "./vector_stores/qdrant";
-export * from "./vector_stores/vectorize";
 export * from "./utils/factory";
