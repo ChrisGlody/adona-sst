@@ -96,6 +96,7 @@ function toZod(schema: any) {
 
   // Ensure the top-level returned schema is ALWAYS an object.
   const zschema = convert(schema)
+  // @ts-ignore
   if (zschema._def.typeName === z.ZodFirstPartyTypeKind.ZodObject) {
     return zschema
   }
