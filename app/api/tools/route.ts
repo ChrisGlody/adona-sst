@@ -6,31 +6,8 @@ import { db } from "@/lib/db";
 import { tools } from "@/lib/db/schema";
 
 export async function POST(req: Request) {
-  //const body = await req.json();
-  //const { name, description, input_schema, output_schema, code /*string*/, type } = body;
-
-  const tool = {
-    "name": "add_numbers",
-    "description": "Adds two numbers together and returns the sum.",
-    "type": "s3-inline", 
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "a": { "type": "number" },
-        "b": { "type": "number" }
-      },
-      "required": ["a", "b"]
-    },
-    "outputSchema": {
-      "type": "object",
-      "properties": {
-        "result": { "type": "number" }
-      }
-    },
-    "code": "export async function main({ a, b }) { return { result: a + b }; }"
-  }
-
-  const { name, description, inputSchema, outputSchema, code, type } = tool;
+  const body = await req.json();
+  const { name, description, inputSchema, outputSchema, code, type } = body;
   
   const id = uuidv4();
   const bucketName = process.env.TOOLS_BUCKET_NAME!;
