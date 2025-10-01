@@ -11,6 +11,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [registeringTool, setRegisteringTool] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  const [runningTool, setRunningTool] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -59,6 +60,23 @@ export default function ChatPage() {
     }
   }
 
+  async function handleRunTool() {
+    setRunningTool(true);
+    try {
+    const res = await fetch("/api/tools/run", {
+      method: "POST",
+      body: JSON.stringify({ toolId: "afd1c1f0-6336-48b7-80e2-6857f3ec7343", input: { a: 1, b: 2 } }),
+    });
+
+    const data = await res.json();
+    console.log(data);
+    setRunningTool(false);
+    } catch (err) {
+      console.error(err);
+      setRunningTool(false);
+    }
+  }
+
   if (loading) {
     return <div className="p-6">Loading…</div>;
   }
@@ -81,12 +99,7 @@ export default function ChatPage() {
       </div>
       <div  className="rounded-lg border p-4">Chat goes here.</div>
       <Button onClick={handleRegisterTool} disabled={registeringTool}>{registeringTool ? "Registering tool..." : "Register Tool"}</Button>
-      <div>
-        {process.env.DATABASE_URL}
-        {process.env.OPENAI_API_KEY}
-        {process.env.QDRANT_URL}
-        {process.env.QDRANT_API_KEY}
-      </div>
+      <Button onClick={handleRunTool} disabled={runningTool}>{runningTool ? "Running tool..." : "Run Tool"}</Button>
     </div>
   );
 }
