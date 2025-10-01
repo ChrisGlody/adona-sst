@@ -156,14 +156,20 @@ export default function Chat({
                     </>
                   ) : (
                     <>
-                      {message.parts.map(
-                        (p) =>
-                          p.type === "text" && (
+                      {message.parts.map((p) =>
+                        p.type === "step-start" ? null : (
+                          p.type === "text" ? (
                             <MarkdownRenderer
                               content={p.text}
                               className="prose prose-sm max-w-none dark:prose-invert"
                             />
+                          ) : (
+                            // Render tool call/result or any non-text part
+                            <pre className="text-xs p-3 border rounded-md bg-stone-50 whitespace-pre-wrap break-words overflow-auto max-h-64">
+                              {JSON.stringify(p, null, 2)}
+                            </pre>
                           )
+                        )
                       )}
                     </>
                   )}
