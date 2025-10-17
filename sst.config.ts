@@ -35,15 +35,34 @@ export default $config({
       },
     });
 
+    // Workflow Orchestrator
+    const orchestrator = new sst.aws.Function("WorkflowOrchestrator", {
+      handler: "lambdas/workflow-orchestrator.main",
+      runtime: "nodejs18.x",
+      link: [toolsBucket],
+    });
+
+    // Workflow Step Runner
+    const stepRunner = new sst.aws.Function("WorkflowStepRunner", {
+      handler: "lambdas/step-runner.main",
+      runtime: "nodejs18.x",
+      link: [toolsBucket],
+      environment: {
+        TOOLS_BUCKET: toolsBucket.name,
+      },
+    });
+
     
-    new sst.aws.Nextjs("Adona", {
+    const site = new sst.aws.Nextjs("Adona", {
       path: ".",
-      link: [userPool, toolsBucket, runner],
+      link: [userPool, toolsBucket, runner, orchestrator, stepRunner],
       environment: {
         NEXT_PUBLIC_USER_POOL_ID: userPool.id,
         NEXT_PUBLIC_USER_POOL_CLIENT_ID: webClient.id,
         NEXT_PUBLIC_AWS_REGION: $app.providers?.aws.region,
         TOOL_RUNNER_ARN: runner.arn,
+        WORKFLOW_ORCHESTRATOR_ARN: orchestrator.arn,
+        WORKFLOW_STEP_RUNNER_ARN: stepRunner.arn,
         TOOLS_BUCKET_NAME: toolsBucket.name,
         DATABASE_URL: process.env.DATABASE_URL!,
         OPENAI_API_KEY: process.env.OPENAI_API_KEY!,

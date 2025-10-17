@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, index, serial, varchar } from "drizzle-orm/pg-core"
+import { pgTable, text, timestamp, jsonb, index, varchar, pgEnum, integer } from "drizzle-orm/pg-core"
 
 export const chats = pgTable(
   "chats",
@@ -42,6 +42,89 @@ export const tools = pgTable("tools", {
   owner: varchar("owner", { length: 160 }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+
+// Workflows
+export const workflowStatusEnum = pgEnum("workflow_status", [
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+export const stepStatusEnum = pgEnum("step_status", [
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "skipped",
+]);
+
+export const workflows = pgTable(
+  "workflows",
+  {
+    id: text("id").primaryKey(),
+    owner: varchar("owner", { length: 160 }).notNull(),
+    name: varchar("name", { length: 200 }).notNull(),
+    description: text("description"),
+    definitionVersion: integer("definition_version").default(1).notNull(),
+    definition: jsonb("definition").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    ownerIdx: index("workflows_owner_idx").on(t.owner),
+    updatedIdx: index("workflows_updated_at_idx").on(t.updatedAt),
+  })
+);
+
+export const workflowRuns = pgTable(
+  "workflow_runs",
+  {
+    id: text("id").primaryKey(),
+    workflowId: text("workflow_id").notNull(),
+    owner: varchar("owner", { length: 160 }).notNull(),
+    status: workflowStatusEnum("status").default("queued").notNull(),
+    input: jsonb("input"),
+    output: jsonb("output"),
+    error: jsonb("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+  },
+  (t) => ({
+    wfIdx: index("workflow_runs_wf_idx").on(t.workflowId),
+    ownerIdx: index("workflow_runs_owner_idx").on(t.owner),
+    statusIdx: index("workflow_runs_status_idx").on(t.status),
+  })
+);
+
+export const workflowRunSteps = pgTable(
+  "workflow_run_steps",
+  {
+    id: text("id").primaryKey(),
+    runId: text("run_id").notNull(),
+    stepId: text("step_id").notNull(),
+    name: varchar("name", { length: 200 }).notNull(),
+    type: varchar("type", { length: 30 }).notNull(),
+    status: stepStatusEnum("status").default("queued").notNull(),
+    attempt: integer("attempt").default(0).notNull(),
+    maxAttempts: integer("max_attempts").default(1).notNull(),
+    input: jsonb("input"),
+    output: jsonb("output"),
+    error: jsonb("error"),
+    deps: text("deps").array(),
+    logs: text("logs"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+  },
+  (t) => ({
+    runIdx: index("workflow_run_steps_run_idx").on(t.runId),
+    stepIdx: index("workflow_run_steps_step_idx").on(t.stepId),
+  })
+);
 
 
 

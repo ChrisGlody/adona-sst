@@ -1,6 +1,6 @@
 import { db } from "./index"
-import { chats, chatMessages, tools } from "./schema"
-import { and, asc, desc, eq } from "drizzle-orm"
+import { chats, chatMessages, tools, workflows, workflowRuns, workflowRunSteps } from "./schema"
+import { and, asc, desc, eq, inArray } from "drizzle-orm"
 import { generateId } from "ai"
 import type { ModelMessage } from "ai"
 
@@ -110,6 +110,127 @@ export async function getUserTools(owner: string) {
 
 export async function getUserTool(id: string, owner: string) {
   return db.select().from(tools).where(and(eq(tools.id, id), eq(tools.owner, owner)))
+}
+
+// Workflows
+export async function createOrUpdateWorkflow({
+  id,
+  owner,
+  name,
+  description,
+  definition,
+}: {
+  id?: string
+  owner: string
+  name: string
+  description?: string | null
+  definition: any
+}) {
+  const wfId = id ?? generateId()
+  const row = {
+    id: wfId,
+    owner,
+    name,
+    description: description ?? null,
+    definitionVersion: 1,
+    definition,
+    updatedAt: new Date(),
+  } as any
+
+  // upsert by id
+  const existing = await db.select({ id: workflows.id }).from(workflows).where(eq(workflows.id, wfId)).limit(1)
+  if (existing.length > 0) {
+    await db.update(workflows).set(row).where(eq(workflows.id, wfId))
+  } else {
+    row.createdAt = new Date()
+    await db.insert(workflows).values(row)
+  }
+  return wfId
+}
+
+export async function listWorkflows(owner: string) {
+  return db.select().from(workflows).where(eq(workflows.owner, owner)).orderBy(desc(workflows.updatedAt))
+}
+
+export async function getWorkflow(id: string, owner: string) {
+  return db.select().from(workflows).where(and(eq(workflows.id, id), eq(workflows.owner, owner)))
+}
+
+export async function createRun({ workflowId, owner, input }: { workflowId: string; owner: string; input: any }) {
+  const id = generateId()
+  await db.insert(workflowRuns).values({ id, workflowId, owner, status: "queued", input })
+  return id
+}
+
+export async function updateRunStatus({
+  id,
+  status,
+  output,
+  error,
+  startedAt,
+  endedAt,
+}: {
+  id: string
+  status?: "queued" | "running" | "completed" | "failed" | "cancelled"
+  output?: any
+  error?: any
+  startedAt?: Date
+  endedAt?: Date
+}) {
+  const patch: any = { updatedAt: new Date() }
+  if (status) patch.status = status
+  if (output !== undefined) patch.output = output
+  if (error !== undefined) patch.error = error
+  if (startedAt) patch.startedAt = startedAt
+  if (endedAt) patch.endedAt = endedAt
+  await db.update(workflowRuns).set(patch).where(eq(workflowRuns.id, id))
+}
+
+export async function getRun(id: string, owner: string) {
+  const runs = await db.select().from(workflowRuns).where(and(eq(workflowRuns.id, id), eq(workflowRuns.owner, owner)))
+  if (runs.length === 0) return null
+  const steps = await db
+    .select()
+    .from(workflowRunSteps)
+    .where(eq(workflowRunSteps.runId, id))
+    .orderBy(asc(workflowRunSteps.startedAt))
+  return { run: runs[0], steps }
+}
+
+export async function upsertRunSteps(
+  runId: string,
+  steps: Array<{
+    id: string
+    stepId: string
+    name: string
+    type: string
+    status?: "queued" | "running" | "completed" | "failed" | "skipped"
+    attempt?: number
+    maxAttempts?: number
+    input?: any
+    output?: any
+    error?: any
+    deps?: string[]
+    logs?: string
+    startedAt?: Date | null
+    endedAt?: Date | null
+  }>
+) {
+  if (steps.length === 0) return
+  const ids = steps.map((s) => s.id)
+  const existing = await db
+    .select({ id: workflowRunSteps.id })
+    .from(workflowRunSteps)
+    .where(inArray(workflowRunSteps.id, ids))
+  const existingIds = new Set(existing.map((e) => e.id))
+
+  const inserts = steps.filter((s) => !existingIds.has(s.id)).map((s) => ({ ...s, runId }))
+  const updates = steps.filter((s) => existingIds.has(s.id))
+
+  if (inserts.length > 0) await db.insert(workflowRunSteps).values(inserts as any)
+  for (const u of updates) {
+    await db.update(workflowRunSteps).set({ ...u }).where(eq(workflowRunSteps.id, u.id))
+  }
 }
 
 

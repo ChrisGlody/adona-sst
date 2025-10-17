@@ -26,6 +26,14 @@ declare module "sst" {
       "secret": string
       "type": "sst.aws.CognitoUserPoolClient"
     }
+    "WorkflowOrchestrator": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
+    "WorkflowStepRunner": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
   }
 }
 /// <reference path="sst-env.d.ts" />
