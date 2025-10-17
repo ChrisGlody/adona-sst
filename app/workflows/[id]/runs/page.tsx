@@ -1,11 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useParams } from "next/navigation";
+import ReactFlow, { Background, Controls, MiniMap } from "reactflow";
+import "reactflow/dist/style.css";
 
 export default function WorkflowRunsPage() {
   const params = useParams<{ id: string }>();
@@ -197,6 +199,53 @@ export default function WorkflowRunsPage() {
     return () => clearInterval(t);
   }, [runId]);
 
+  const statusByStepId = useMemo(() => {
+    const map: Record<string, string> = {};
+    const steps: any[] = (runData?.steps as any[]) || [];
+    for (const s of steps) map[s.stepId] = s.status;
+    return map;
+  }, [runData]);
+
+  const flowNodes = useMemo(() => {
+    const def = workflow?.definition || {};
+    const nodes: any[] = Array.isArray(def.nodes) ? def.nodes : [];
+    return nodes.map((n: any) => {
+      const status = statusByStepId[n.id] || "pending";
+      const color =
+        status === "completed"
+          ? "#22c55e" // green
+          : status === "running"
+          ? "#f59e0b" // amber
+          : status === "queued"
+          ? "#3b82f6" // blue
+          : status === "failed"
+          ? "#ef4444" // red
+          : status === "cancelled"
+          ? "#6b7280" // gray
+          : "#9ca3af"; // pending gray
+      return {
+        id: n.id,
+        data: { label: `${n.name || n.id} (${status})` },
+        position: { x: n.x || 0, y: n.y || 0 },
+        style: {
+          backgroundColor: color + "20",
+          border: `2px solid ${color}`,
+          color: "#111827",
+        },
+      };
+    });
+  }, [workflow, statusByStepId]);
+
+  const flowEdges = useMemo(() => {
+    const def = workflow?.definition || {};
+    const edges: any[] = Array.isArray(def.edges) ? def.edges : [];
+    return edges.map((e: any) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+    }));
+  }, [workflow]);
+
   return (
     <>
       <Header />
@@ -235,12 +284,25 @@ export default function WorkflowRunsPage() {
           <div className="text-sm text-muted-foreground">Run: {runId}</div>
         )}
         {runData && (
-          <Card className="p-4">
-            <div className="font-medium">Status: {runData.run.status}</div>
-            <pre className="mt-2 text-xs bg-muted p-3 rounded">
-              {JSON.stringify(runData, null, 2)}
-            </pre>
-          </Card>
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-7">
+              <Card className="h-[60vh]">
+                <ReactFlow nodes={flowNodes} edges={flowEdges} fitView>
+                  <MiniMap />
+                  <Controls />
+                  <Background />
+                </ReactFlow>
+              </Card>
+            </div>
+            <div className="col-span-5">
+              <Card className="p-4 h-[60vh] overflow-auto">
+                <div className="font-medium">Status: {runData.run.status}</div>
+                <pre className="mt-2 text-xs bg-muted p-3 rounded">
+                  {JSON.stringify(runData, null, 2)}
+                </pre>
+              </Card>
+            </div>
+          </div>
         )}
       </div>
     </>
