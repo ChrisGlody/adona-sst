@@ -49,6 +49,7 @@ export default $config({
       link: [toolsBucket],
       environment: {
         TOOLS_BUCKET: toolsBucket.name,
+        INTERNAL_API_BASE_URL: process.env.INTERNAL_API_BASE_URL!,
       },
     });
 
@@ -68,6 +69,7 @@ export default $config({
         OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
         QDRANT_URL: process.env.QDRANT_URL!,
         QDRANT_API_KEY: process.env.QDRANT_API_KEY!,
+        INTERNAL_API_BASE_URL: process.env.INTERNAL_API_BASE_URL!,
       },
     });
   },

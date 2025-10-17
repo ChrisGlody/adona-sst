@@ -9,11 +9,11 @@ const s3 = new S3();
 
 export async function POST(req: Request) {
   const user = await getAuthUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+  
   try {
-  const { workflowId, input, resumeRunId } = await req.json();
-  const wfRows = await getWorkflow(workflowId, user.sub);
+  const { workflowId, input, resumeRunId, owner } = await req.json();
+  const owner_user = user?.sub || owner
+  const wfRows = await getWorkflow(workflowId, owner_user);
   if (wfRows.length === 0) return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
 
   const runId = resumeRunId || uuidv4();
@@ -21,13 +21,13 @@ export async function POST(req: Request) {
 
   if (!resumeRunId) {
     // Create run in DB and S3 only for new runs
-    await createRun({ workflowId, owner: user.sub, input });
+    await createRun({ workflowId, owner: owner_user, input });
     await updateRunStatus({ id: runId, status: "queued" });
 
     const runData = {
       id: runId,
       workflowId,
-      owner: user.sub,
+      owner: owner_user,
       status: "queued",
       input,
       steps: [],
@@ -41,8 +41,8 @@ export async function POST(req: Request) {
       Body: JSON.stringify(runData)
     }).promise();
   }
-
-  const payload = await orchestrateRun({ runId, owner: user.sub });
+  console.log("=====> execute", owner_user)
+  const payload = await orchestrateRun({ runId, owner: owner_user });
   if ((payload as any).error) {
     return NextResponse.json({ error: (payload as any).error }, { status: 500 });
   }

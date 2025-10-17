@@ -52,6 +52,7 @@ export async function orchestrateRun(params: { runId: string; owner: string }) {
     arr.push(e.source);
   }
 
+  console.log("nodes ----=>", nodes)
   const runnable: any[] = [];
   for (const n of nodes) {
     if (completedStepIds.has(n.id) || runningOrQueued.has(n.id)) continue;

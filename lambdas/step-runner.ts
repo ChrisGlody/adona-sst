@@ -148,13 +148,12 @@ export const main = async (event: any) => {
     await s3.putObject({ Bucket: bucket, Key: runKey, Body: JSON.stringify(runData) }).promise();
   }
 
-  return { ok: true };
-
   // Trigger orchestrator to continue
   // Notify the API orchestrator route to continue the run.
   // If an internal URL is configured, call it; otherwise fallback to legacy lambda if present.
   try {
     const apiBase = process.env.INTERNAL_API_BASE_URL;
+    console.log("====> apibase", apiBase)
     if (apiBase) {
       await fetch(`${apiBase}/api/workflows/run`, {
         method: "POST",
