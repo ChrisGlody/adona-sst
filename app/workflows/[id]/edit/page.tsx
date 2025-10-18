@@ -164,7 +164,7 @@ export default function EditWorkflowPage() {
     <>
       <Header />
       <div className="p-6 grid grid-cols-12 gap-4 h-[calc(100vh-4rem)]">
-        <div className="col-span-9 h-full">
+        <div className="col-span-7 h-full">
           <Card className="h-full">
             <ReactFlow
               nodes={nodes}
@@ -181,7 +181,7 @@ export default function EditWorkflowPage() {
             </ReactFlow>
           </Card>
         </div>
-        <div className="col-span-3 space-y-3">
+        <div className="col-span-5 space-y-3">
           <Card className="p-3 space-y-2">
             <div className="font-medium">Palette</div>
             <Button onClick={() => addNode("tool")}>Add Tool</Button>
