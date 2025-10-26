@@ -236,203 +236,222 @@ User ID: ${userId}`
 
   // Build AI SDK tools for workflow management
   const workflowTools = {
-    // Tool to list workflows and get first step
-    'get_workflow_info': {
-      description: "Get information about available workflows or start a workflow by getting its first step",
+    // Tool to list workflows
+    'list_workflows': {
+      description: "List all available workflows",
       inputSchema: toZod({
         type: 'object',
-        properties: {
-          action: { 
-            type: 'string', 
-            enum: ['list', 'start'],
-            description: 'Action to perform: "list" to see all workflows, "start" to get first step of a workflow'
-          },
-          workflowId: { 
-            type: 'string', 
-            description: 'Workflow ID (required when action is "start")' 
-          },
-          input: { 
-            type: 'object', 
-            description: 'Input for the workflow (optional when action is "start")' 
-          }
-        },
-        required: ['action']
+        properties: {},
+        required: []
       }),
-      execute: async (args: { action: string, workflowId?: string, input?: any }) => {
-        try {
-          const { action, workflowId, input } = args
-
-          if (action === 'list') {
-            // Return list of available workflows
-            const workflowList = workflows.map(wf => ({
-              id: wf.id,
-              name: wf.name,
-              description: wf.description,
-              steps: (wf.definition as any)?.nodes?.length || 0
-            }))
-            
-            return {
-              workflows: workflowList,
-              message: `Found ${workflowList.length} workflows. Use action "start" with a workflowId to begin execution.`
-            }
-          }
-
-          if (action === 'start') {
-            if (!workflowId) {
-              throw new Error('workflowId is required when action is "start"')
-            }
-
-            // Get workflow definition
-            const workflow = await getWorkflowWithSteps(workflowId, userId)
-            if (!workflow) {
-              throw new Error('Workflow not found')
-            }
-
-            // Create workflow run
-            const runId = await createWorkflowRun({
-              workflowId,
-              owner: userId,
-              input: input || {}
-            })
-
-            // Get first executable steps
-            const nextSteps = getNextExecutableSteps(
-              workflow.definition as any,
-              [], // No completed steps yet
-              {}, // No step outputs yet
-              input || {}
-            )
-
-            if (!nextSteps || nextSteps.length === 0) {
-              return { 
-                runId,
-                message: 'Workflow completed with no steps to execute',
-                isComplete: true
-              }
-            }
-
-            // Return first step for AI to execute
-            return {
-              runId,
-              workflowName: workflow.name,
-              nextStep: nextSteps[0],
-              totalSteps: (workflow.definition as any)?.nodes?.length || 0,
-              isComplete: false,
-              message: `Workflow "${workflow.name}" started. First step: ${nextSteps[0].name}. Use execute_workflow_step to run it.`
-            }
-          }
-
-          throw new Error('Invalid action. Use "list" or "start"')
-
-        } catch (error: any) {
-          console.error('Get workflow info failed:', error)
-          throw new Error(`Get workflow info failed: ${error.message}`)
+      execute: async () => {
+        const workflowList = workflows.map(wf => ({
+          id: wf.id,
+          name: wf.name,
+          description: wf.description,
+          steps: (wf.definition as any)?.nodes?.length || 0
+        }))
+        
+        return {
+          workflows: workflowList,
+          message: `Found ${workflowList.length} workflows. Use run_workflow_auto to execute them automatically.`
         }
       }
     },
 
-    // Tool to execute individual workflow steps
-    'execute_workflow_step': {
-      description: "Execute a specific step in an AI workflow run",
+    // Tool to run workflow automatically with step-by-step output
+    'run_workflow_auto': {
+      description: "Run a complete workflow automatically, executing all steps in sequence and showing the output of each step",
       inputSchema: toZod({
         type: 'object',
         properties: {
-          runId: { type: 'string', description: 'The workflow run ID' },
-          stepId: { type: 'string', description: 'The step ID to execute' },
-          input: { type: 'object', description: 'Input for the step (optional)' }
+          workflowId: { type: 'string', description: 'The workflow ID to run' },
+          input: { type: 'object', description: 'Input for the workflow' }
         },
-        required: ['runId', 'stepId']
+        required: ['workflowId']
       }),
-      execute: async (args: { runId: string, stepId: string, input?: any }) => {
+      execute: async (args: { workflowId: string, input?: any }) => {
         try {
-          const { runId, stepId, input } = args
-          
-          // Get workflow run status
-          const runStatus = await getRunStatus(runId, userId)
-          if (!runStatus) {
-            throw new Error('Workflow run not found')
-          }
-
-          const workflow = await getWorkflowWithSteps(runStatus.run.workflowId, userId)
+          // Get workflow definition
+          const workflow = await getWorkflowWithSteps(args.workflowId, userId)
           if (!workflow) {
             throw new Error('Workflow not found')
           }
 
-          // Get step definition
-          const stepDef = (workflow.definition as any).nodes.find((n: any) => n.id === stepId)
-          if (!stepDef) {
-            throw new Error(`Step ${stepId} not found`)
-          }
+          // Create workflow run
+          const runId = await createWorkflowRun({
+            workflowId: args.workflowId,
+            owner: userId,
+            input: args.input || {}
+          })
 
-          // Build context
+          // Execute all steps automatically with detailed output
           const stepOutputs: Record<string, any> = {}
-          runStatus.steps.forEach((s: any) => {
-            if (s.status === 'completed' && s.output) {
-              stepOutputs[s.stepId] = s.output
+          const stepDetails: Array<{
+            stepId: string,
+            stepName: string,
+            stepType: string,
+            input: any,
+            output: any,
+            status: string,
+            executionTime: number
+          }> = []
+          
+          let currentSteps = getNextExecutableSteps(
+            workflow.definition as any,
+            [],
+            {},
+            args.input || {}
+          )
+          let stepCount = 0
+
+          console.log(`Starting workflow "${workflow.name}" with ${currentSteps.length} initial steps`)
+
+          while (currentSteps.length > 0 && stepCount < 50) { // Safety limit
+            for (const step of currentSteps) {
+              const stepStartTime = Date.now()
+              
+              try {
+                // Get step definition
+                const stepDef = (workflow.definition as any).nodes.find((n: any) => n.id === step.stepId)
+                if (!stepDef) {
+                  throw new Error(`Step ${step.stepId} not found`)
+                }
+
+                console.log(`Executing step ${stepCount + 1}: ${stepDef.name} (${stepDef.type})`)
+
+                // Build context
+                const context = {
+                  workflowInput: args.input,
+                  stepOutputs,
+                  userId
+                }
+
+                // Execute step
+                const output = await executeStep(stepDef, args.input || {}, context)
+                const executionTime = Date.now() - stepStartTime
+
+                // Update step status
+                await createOrUpdateStepExecution({
+                  runId,
+                  stepId: step.stepId,
+                  name: stepDef.name || step.stepId,
+                  type: stepDef.type || "tool",
+                  status: 'completed',
+                  output,
+                  endedAt: new Date()
+                })
+
+                // Store detailed results
+                stepOutputs[step.stepId] = output
+                stepDetails.push({
+                  stepId: step.stepId,
+                  stepName: stepDef.name || step.stepId,
+                  stepType: stepDef.type || "tool",
+                  input: args.input || {},
+                  output: output,
+                  status: 'completed',
+                  executionTime: executionTime
+                })
+                stepCount++
+
+                console.log(`Step ${stepCount} completed: ${stepDef.name} - Output:`, output)
+
+                // Get next steps
+                const updatedRunStatus = await getRunStatus(runId, userId)
+                const updatedSteps = updatedRunStatus?.steps || []
+                const completedSteps = updatedSteps
+                  .filter((s: any) => s.status === 'completed')
+                  .map(s => ({ stepId: s.stepId, output: s.output }))
+
+                const nextSteps = getNextExecutableSteps(
+                  workflow.definition as any,
+                  completedSteps,
+                  stepOutputs,
+                  args.input || {}
+                )
+
+                const workflowComplete = isWorkflowComplete(
+                  workflow.definition as any,
+                  completedSteps
+                )
+
+                if (workflowComplete) {
+                  await updateRunStatus({
+                    id: runId,
+                    status: 'completed',
+                    output: stepOutputs,
+                    endedAt: new Date()
+                  })
+                  
+                  console.log(`Workflow "${workflow.name}" completed! Executed ${stepCount} steps`)
+                  
+                  return {
+                    runId,
+                    workflowName: workflow.name,
+                    finalResult: stepOutputs,
+                    stepDetails,
+                    stepsExecuted: stepCount,
+                    totalExecutionTime: stepDetails.reduce((sum, step) => sum + step.executionTime, 0),
+                    isComplete: true,
+                    message: `Workflow "${workflow.name}" completed automatically!`,
+                    summary: {
+                      totalSteps: stepCount,
+                      stepSequence: stepDetails.map(s => s.stepName).join(' → '),
+                      finalOutput: stepOutputs,
+                      executionTime: stepDetails.reduce((sum, step) => sum + step.executionTime, 0)
+                    }
+                  }
+                }
+
+                // Update current steps for next iteration
+                currentSteps = nextSteps || []
+                console.log(`Next steps available: ${currentSteps.map(s => s.name).join(', ')}`)
+
+              } catch (stepError: any) {
+                const executionTime = Date.now() - stepStartTime
+                console.error(`Step ${step.stepId} execution failed:`, stepError)
+                
+                // Get step definition for error reporting
+                const stepDef = (workflow.definition as any).nodes.find((n: any) => n.id === step.stepId)
+                
+                // Record failed step
+                stepDetails.push({
+                  stepId: step.stepId,
+                  stepName: stepDef?.name || step.stepId,
+                  stepType: stepDef?.type || "tool",
+                  input: args.input || {},
+                  output: null,
+                  status: 'failed',
+                  executionTime: executionTime
+                })
+
+                throw new Error(`Step ${step.name} failed: ${stepError.message}`)
+              }
             }
-          })
-
-          const context = {
-            workflowInput: runStatus.run.input,
-            stepOutputs,
-            userId
           }
 
-          // Execute step
-          const output = await executeStep(stepDef, input || {}, context)
-
-          // Update step status
-          await createOrUpdateStepExecution({
-            runId,
-            stepId,
-            name: stepDef.name || stepId,
-            type: stepDef.type || "tool",
-            status: 'completed',
-            output,
-            endedAt: new Date()
-          })
-
-          // Get next steps
-          const updatedRunStatus = await getRunStatus(runId, userId)
-          const updatedSteps = updatedRunStatus?.steps || []
-          const completedSteps = updatedSteps
-            .filter((s: any) => s.status === 'completed')
-            .map(s => ({ stepId: s.stepId, output: s.output }))
-
-          const nextSteps = getNextExecutableSteps(
-            workflow.definition as any,
-            completedSteps,
-            { ...stepOutputs, [stepId]: output },
-            runStatus.run.input
-          )
-
-          const workflowComplete = isWorkflowComplete(
-            workflow.definition as any,
-            completedSteps
-          )
-
-          if (workflowComplete) {
-            await updateRunStatus({
-              id: runId,
-              status: 'completed',
-              output: { ...stepOutputs, [stepId]: output },
-              endedAt: new Date()
-            })
-          }
-
+          // If we hit the safety limit
           return {
-            stepName: stepDef.name,
-            stepOutput: output,
-            nextSteps: nextSteps || [],
-            isComplete: workflowComplete,
-            message: workflowComplete 
-              ? `Workflow "${workflow.name}" completed!` 
-              : `Step "${stepDef.name}" completed. Next steps: ${nextSteps.map(s => s.name).join(', ')}`
+            runId,
+            workflowName: workflow.name,
+            partialResult: stepOutputs,
+            stepDetails,
+            stepsExecuted: stepCount,
+            totalExecutionTime: stepDetails.reduce((sum, step) => sum + step.executionTime, 0),
+            isComplete: false,
+            message: `Workflow "${workflow.name}" partially completed. Executed ${stepCount} steps (safety limit reached).`,
+            summary: {
+              totalSteps: stepCount,
+              stepSequence: stepDetails.map(s => s.stepName).join(' → '),
+              partialOutput: stepOutputs,
+              executionTime: stepDetails.reduce((sum, step) => sum + step.executionTime, 0)
+            }
           }
 
         } catch (error: any) {
-          console.error('Step execution failed:', error)
-          throw new Error(`Step execution failed: ${error.message}`)
+          console.error('Auto workflow execution failed:', error)
+          throw new Error(`Auto workflow execution failed: ${error.message}`)
         }
       }
     }
