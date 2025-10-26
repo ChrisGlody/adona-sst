@@ -3,7 +3,9 @@ import { ModelMessage, streamText } from 'ai'
 import { z } from 'zod'
 
 import { Mem0Memory } from '../memory/mem0'
-import { getUserTool, getUserWorkflows } from '../db/queries'
+import { getUserTool, getUserWorkflows, getWorkflowWithSteps, createWorkflowRun, getRunStatus, createOrUpdateStepExecution, updateRunStatus } from '../db/queries'
+import { getNextExecutableSteps, isWorkflowComplete } from '../workflows/graph-analyzer'
+import { executeStep } from '../workflows/ai-step-executor'
 import { Lambda } from 'aws-sdk'
 
 type RegisteredTool = {
@@ -64,90 +66,6 @@ async function runRegisteredTool(userId: string, toolId: string, input: unknown)
   }
 
   throw new Error('Unsupported tool type')
-}
-
-async function runWorkflow(userId: string, workflowId: string, input: unknown) {
-  try {
-    // Initialize workflow run
-    const runResponse = await fetch('/api/ai/workflows/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workflowId, input })
-    })
-    
-    if (!runResponse.ok) {
-      const error = await runResponse.json()
-      throw new Error(`Failed to initialize workflow: ${error.error}`)
-    }
-    
-    const { runId, nextSteps } = await runResponse.json()
-    
-    if (!nextSteps || nextSteps.length === 0) {
-      return { result: 'Workflow completed with no steps to execute' }
-    }
-    
-    // Execute steps iteratively
-    const stepOutputs: Record<string, any> = {}
-    let currentSteps = nextSteps
-    
-    while (currentSteps.length > 0) {
-      for (const step of currentSteps) {
-        try {
-          // Determine step input based on context and step requirements
-          let stepInput = input
-          
-          // If step has input mapping, evaluate it
-          if (step.inputMapping) {
-            try {
-              // eslint-disable-next-line no-new-func
-              const fn = new Function('context', `return (${step.inputMapping});`)
-              stepInput = fn({ 
-                workflowInput: input, 
-                stepOutputs 
-              })
-            } catch (e) {
-              console.warn(`Failed to evaluate input mapping for step ${step.stepId}:`, e)
-            }
-          }
-          
-          // Execute the step
-          const executeResponse = await fetch(`/api/ai/workflows/${runId}/step/${step.stepId}/execute`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ input: stepInput })
-          })
-          
-          if (!executeResponse.ok) {
-            const error = await executeResponse.json()
-            throw new Error(`Step execution failed: ${error.error}`)
-          }
-          
-          const { output, nextSteps: newSteps, isComplete } = await executeResponse.json()
-          
-          // Store step output
-          stepOutputs[step.stepId] = output
-          
-          // Update current steps for next iteration
-          currentSteps = newSteps || []
-          
-          // If workflow is complete, return final result
-          if (isComplete) {
-            return { result: stepOutputs }
-          }
-          
-        } catch (stepError: any) {
-          console.error(`Step ${step.stepId} execution failed:`, stepError)
-          throw new Error(`Step ${step.name} failed: ${stepError.message}`)
-        }
-      }
-    }
-    
-    return { result: stepOutputs }
-    
-  } catch (error: any) {
-    console.error('Workflow execution failed:', error)
-    throw new Error(`Workflow execution failed: ${error.message}`)
-  }
 }
 
 function toZod(schema: any) {
@@ -316,30 +234,209 @@ User ID: ${userId}`
     return acc
   }, {})
 
-  // Build AI SDK tools from workflows
-  const workflowTools = workflows.reduce<Record<string, any>>((acc, wf) => {
-    const sanitizedName = wf.name
-    .replace(/[^a-zA-Z0-9_-]/g, '_') // Replace invalid chars with underscore
-    .replace(/_+/g, '_') // Replace multiple underscores with single
-    .replace(/^_|_$/g, '') // Remove leading/trailing underscores
-    // Use a stable unique tool name for workflows
-    const sanitizedId = wf.id.replace(/[^a-zA-Z0-9_-]/g, '_')
+  // Build AI SDK tools for workflow management
+  const workflowTools = {
+    // Tool to list workflows and get first step
+    'get_workflow_info': {
+      description: "Get information about available workflows or start a workflow by getting its first step",
+      inputSchema: toZod({
+        type: 'object',
+        properties: {
+          action: { 
+            type: 'string', 
+            enum: ['list', 'start'],
+            description: 'Action to perform: "list" to see all workflows, "start" to get first step of a workflow'
+          },
+          workflowId: { 
+            type: 'string', 
+            description: 'Workflow ID (required when action is "start")' 
+          },
+          input: { 
+            type: 'object', 
+            description: 'Input for the workflow (optional when action is "start")' 
+          }
+        },
+        required: ['action']
+      }),
+      execute: async (args: { action: string, workflowId?: string, input?: any }) => {
+        try {
+          const { action, workflowId, input } = args
 
-    const key = `workflow_${sanitizedName}_${sanitizedId}`
+          if (action === 'list') {
+            // Return list of available workflows
+            const workflowList = workflows.map(wf => ({
+              id: wf.id,
+              name: wf.name,
+              description: wf.description,
+              steps: (wf.definition as any)?.nodes?.length || 0
+            }))
+            
+            return {
+              workflows: workflowList,
+              message: `Found ${workflowList.length} workflows. Use action "start" with a workflowId to begin execution.`
+            }
+          }
 
-    acc[key] = {
-      description: wf.description || `AI workflow: ${wf.name}`,
-      inputSchema: toZod(wf.inputSchema || { type: 'object', properties: {} }),
-      execute: async (args: unknown) => {
-        console.log("executing workflow name ====>", wf.name, "args ====>", args);
-        // Execute workflow step by step
-        const out = await runWorkflow(userId, wf.id, args)
-        console.log("workflow result ====>", wf.name, "result ====>", out);
-        return out
-      },
+          if (action === 'start') {
+            if (!workflowId) {
+              throw new Error('workflowId is required when action is "start"')
+            }
+
+            // Get workflow definition
+            const workflow = await getWorkflowWithSteps(workflowId, userId)
+            if (!workflow) {
+              throw new Error('Workflow not found')
+            }
+
+            // Create workflow run
+            const runId = await createWorkflowRun({
+              workflowId,
+              owner: userId,
+              input: input || {}
+            })
+
+            // Get first executable steps
+            const nextSteps = getNextExecutableSteps(
+              workflow.definition as any,
+              [], // No completed steps yet
+              {}, // No step outputs yet
+              input || {}
+            )
+
+            if (!nextSteps || nextSteps.length === 0) {
+              return { 
+                runId,
+                message: 'Workflow completed with no steps to execute',
+                isComplete: true
+              }
+            }
+
+            // Return first step for AI to execute
+            return {
+              runId,
+              workflowName: workflow.name,
+              nextStep: nextSteps[0],
+              totalSteps: (workflow.definition as any)?.nodes?.length || 0,
+              isComplete: false,
+              message: `Workflow "${workflow.name}" started. First step: ${nextSteps[0].name}. Use execute_workflow_step to run it.`
+            }
+          }
+
+          throw new Error('Invalid action. Use "list" or "start"')
+
+        } catch (error: any) {
+          console.error('Get workflow info failed:', error)
+          throw new Error(`Get workflow info failed: ${error.message}`)
+        }
+      }
+    },
+
+    // Tool to execute individual workflow steps
+    'execute_workflow_step': {
+      description: "Execute a specific step in an AI workflow run",
+      inputSchema: toZod({
+        type: 'object',
+        properties: {
+          runId: { type: 'string', description: 'The workflow run ID' },
+          stepId: { type: 'string', description: 'The step ID to execute' },
+          input: { type: 'object', description: 'Input for the step (optional)' }
+        },
+        required: ['runId', 'stepId']
+      }),
+      execute: async (args: { runId: string, stepId: string, input?: any }) => {
+        try {
+          const { runId, stepId, input } = args
+          
+          // Get workflow run status
+          const runStatus = await getRunStatus(runId, userId)
+          if (!runStatus) {
+            throw new Error('Workflow run not found')
+          }
+
+          const workflow = await getWorkflowWithSteps(runStatus.run.workflowId, userId)
+          if (!workflow) {
+            throw new Error('Workflow not found')
+          }
+
+          // Get step definition
+          const stepDef = (workflow.definition as any).nodes.find((n: any) => n.id === stepId)
+          if (!stepDef) {
+            throw new Error(`Step ${stepId} not found`)
+          }
+
+          // Build context
+          const stepOutputs: Record<string, any> = {}
+          runStatus.steps.forEach((s: any) => {
+            if (s.status === 'completed' && s.output) {
+              stepOutputs[s.stepId] = s.output
+            }
+          })
+
+          const context = {
+            workflowInput: runStatus.run.input,
+            stepOutputs,
+            userId
+          }
+
+          // Execute step
+          const output = await executeStep(stepDef, input || {}, context)
+
+          // Update step status
+          await createOrUpdateStepExecution({
+            runId,
+            stepId,
+            name: stepDef.name || stepId,
+            type: stepDef.type || "tool",
+            status: 'completed',
+            output,
+            endedAt: new Date()
+          })
+
+          // Get next steps
+          const updatedRunStatus = await getRunStatus(runId, userId)
+          const updatedSteps = updatedRunStatus?.steps || []
+          const completedSteps = updatedSteps
+            .filter((s: any) => s.status === 'completed')
+            .map(s => ({ stepId: s.stepId, output: s.output }))
+
+          const nextSteps = getNextExecutableSteps(
+            workflow.definition as any,
+            completedSteps,
+            { ...stepOutputs, [stepId]: output },
+            runStatus.run.input
+          )
+
+          const workflowComplete = isWorkflowComplete(
+            workflow.definition as any,
+            completedSteps
+          )
+
+          if (workflowComplete) {
+            await updateRunStatus({
+              id: runId,
+              status: 'completed',
+              output: { ...stepOutputs, [stepId]: output },
+              endedAt: new Date()
+            })
+          }
+
+          return {
+            stepName: stepDef.name,
+            stepOutput: output,
+            nextSteps: nextSteps || [],
+            isComplete: workflowComplete,
+            message: workflowComplete 
+              ? `Workflow "${workflow.name}" completed!` 
+              : `Step "${stepDef.name}" completed. Next steps: ${nextSteps.map(s => s.name).join(', ')}`
+          }
+
+        } catch (error: any) {
+          console.error('Step execution failed:', error)
+          throw new Error(`Step execution failed: ${error.message}`)
+        }
+      }
     }
-    return acc
-  }, {})
+  }
 
   // Combine all tools
   const aiTools = { ...toolTools, ...workflowTools }
