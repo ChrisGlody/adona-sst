@@ -12,7 +12,7 @@ export async function GET(
   }
 
   try {
-    const { runId } = params;
+    const { runId } = await params;
     
     if (!runId) {
       return NextResponse.json({ 
