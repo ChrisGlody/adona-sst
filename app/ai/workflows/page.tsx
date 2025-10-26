@@ -180,11 +180,6 @@ export default function AIWorkflowsPage() {
                         Edit
                       </Button>
                     </Link>
-                    <Link href={`/ai/workflows/${workflow.id}/runs`}>
-                      <Button variant="outline" size="sm">
-                        View Runs
-                      </Button>
-                    </Link>
                     <Button
                       variant="outline"
                       size="sm"
