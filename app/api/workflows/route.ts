@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth.server";
-import { createOrUpdateWorkflow } from "@/lib/db/queries";
+import { createOrUpdateWorkflow, createAIWorkflow } from "@/lib/db/queries";
 import { S3 } from "aws-sdk";
 import { v4 as uuidv4 } from "uuid";
 // orchestrator is only used by the run route
@@ -13,50 +13,66 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { id, name, description, definition } = body;
+    const { id, name, description, executionEnv, inputSchema, outputSchema, definition } = body;
     if (!name || !definition) {
       return NextResponse.json({ error: "Missing name or definition" }, { status: 400 });
     }
 
     const wfId = id || uuidv4();
-    const bucketName = process.env.TOOLS_BUCKET_NAME!;
+    const env = executionEnv || "db";
 
-    // Store workflow definition in S3 (like tools do)
-    await s3.putObject({
-      Bucket: bucketName,
-      Key: `workflows/${wfId}.json`,
-      Body: JSON.stringify({ id: wfId, name, description, definition, owner: user.sub, createdAt: new Date() }),
-    }).promise();
+    if (env === "s3") {
+      // Store workflow definition in S3 (existing behavior)
+      const bucketName = process.env.TOOLS_BUCKET_NAME!;
+      
+      await s3.putObject({
+        Bucket: bucketName,
+        Key: `workflows/${wfId}.json`,
+        Body: JSON.stringify({ id: wfId, name, description, definition, owner: user.sub, createdAt: new Date() }),
+      }).promise();
 
-    console.log("===> Workflow definition", definition);
+      console.log("===> Workflow definition", definition);
 
-    // Store inline code snippets in S3 if any
-    for (const node of definition.nodes || []) {
-      console.log("===> Node", node);
-      if (node.type === "inline" && node.code) {
-        console.log("===> Node code", node.code);
-        await s3.putObject({
-          Bucket: bucketName,
-          Key: `workflow-code/${wfId}_${node.id}.js`,
-          Body: node.code,
-        }).promise();
-        // Update node to reference S3 location
-        node.implRef = `s3://${bucketName}/workflow-code/${wfId}_${node.id}.js`;
-        delete node.code; // Remove inline code from definition
+      // Store inline code snippets in S3 if any
+      for (const node of definition.nodes || []) {
+        console.log("===> Node", node);
+        if (node.type === "inline" && node.code) {
+          console.log("===> Node code", node.code);
+          await s3.putObject({
+            Bucket: bucketName,
+            Key: `workflow-code/${wfId}_${node.id}.js`,
+            Body: node.code,
+          }).promise();
+          // Update node to reference S3 location
+          node.implRef = `s3://${bucketName}/workflow-code/${wfId}_${node.id}.js`;
+          delete node.code; // Remove inline code from definition
+        }
       }
+
+      // Update S3 with cleaned definition
+      await s3.putObject({
+        Bucket: bucketName,
+        Key: `workflows/${wfId}.json`,
+        Body: JSON.stringify({ id: wfId, name, description, definition, owner: user.sub, createdAt: new Date() }),
+      }).promise();
+
+      // Also store in DB for API queries
+      await createOrUpdateWorkflow({ id: wfId, owner: user.sub, name, description, definition });
+      
+    } else {
+      // Store workflow in database only (AI-driven)
+      await createAIWorkflow({
+        id: wfId,
+        owner: user.sub,
+        name,
+        description,
+        inputSchema,
+        outputSchema,
+        definition
+      });
     }
-
-    // Update S3 with cleaned definition
-    await s3.putObject({
-      Bucket: bucketName,
-      Key: `workflows/${wfId}.json`,
-      Body: JSON.stringify({ id: wfId, name, description, definition, owner: user.sub, createdAt: new Date() }),
-    }).promise();
-
-    // Also store in DB for API queries
-    await createOrUpdateWorkflow({ id: wfId, owner: user.sub, name, description, definition });
     
-    return NextResponse.json({ ok: true, id: wfId });
+    return NextResponse.json({ ok: true, id: wfId, executionEnv: env });
   } catch (e: any) {
     console.error("Error saving workflow:", e);
     return NextResponse.json({ error: e?.message || "Failed to save workflow" }, { status: 500 });

@@ -233,4 +233,182 @@ export async function upsertRunSteps(
   }
 }
 
+// AI Workflow Functions
+export async function createAIWorkflow({
+  id,
+  owner,
+  name,
+  description,
+  inputSchema,
+  outputSchema,
+  definition,
+}: {
+  id?: string
+  owner: string
+  name: string
+  description?: string | null
+  inputSchema?: any
+  outputSchema?: any
+  definition: any
+}) {
+  const wfId = id ?? generateId()
+  const row = {
+    id: wfId,
+    owner,
+    name,
+    description: description ?? null,
+    definitionVersion: 1,
+    definition,
+    executionEnv: "db",
+    inputSchema: inputSchema ?? null,
+    outputSchema: outputSchema ?? null,
+    updatedAt: new Date(),
+  } as any
+
+  // upsert by id
+  const existing = await db.select({ id: workflows.id }).from(workflows).where(eq(workflows.id, wfId)).limit(1)
+  if (existing.length > 0) {
+    await db.update(workflows).set(row).where(eq(workflows.id, wfId))
+  } else {
+    row.createdAt = new Date()
+    await db.insert(workflows).values(row)
+  }
+  return wfId
+}
+
+export async function getUserWorkflows(userId: string, executionEnv?: string) {
+  const conditions = [eq(workflows.owner, userId)]
+  if (executionEnv) {
+    conditions.push(eq(workflows.executionEnv, executionEnv))
+  }
+  return db
+    .select()
+    .from(workflows)
+    .where(and(...conditions))
+    .orderBy(desc(workflows.updatedAt))
+}
+
+export async function getWorkflowWithSteps(workflowId: string, owner: string) {
+  const workflowRows = await db
+    .select()
+    .from(workflows)
+    .where(and(eq(workflows.id, workflowId), eq(workflows.owner, owner)))
+  
+  if (workflowRows.length === 0) return null
+  
+  return workflowRows[0]
+}
+
+export async function createWorkflowRun({ workflowId, owner, input }: { workflowId: string; owner: string; input: any }) {
+  const id = generateId()
+  await db.insert(workflowRuns).values({ 
+    id, 
+    workflowId, 
+    owner, 
+    status: "queued", 
+    input,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  })
+  return id
+}
+
+export async function updateStepExecution({
+  runId,
+  stepId,
+  output,
+  status,
+  error,
+  startedAt,
+  endedAt,
+}: {
+  runId: string
+  stepId: string
+  output?: any
+  status?: "queued" | "running" | "completed" | "failed" | "skipped"
+  error?: any
+  startedAt?: Date | null
+  endedAt?: Date | null
+}) {
+  const patch: any = {}
+  if (output !== undefined) patch.output = output
+  if (status) patch.status = status
+  if (error !== undefined) patch.error = error
+  if (startedAt !== undefined) patch.startedAt = startedAt
+  if (endedAt !== undefined) patch.endedAt = endedAt
+  
+  await db
+    .update(workflowRunSteps)
+    .set(patch)
+    .where(and(eq(workflowRunSteps.runId, runId), eq(workflowRunSteps.stepId, stepId)))
+}
+
+export async function getRunStatus(runId: string, owner: string) {
+  const runs = await db
+    .select()
+    .from(workflowRuns)
+    .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.owner, owner)))
+  
+  if (runs.length === 0) return null
+  
+  const steps = await db
+    .select()
+    .from(workflowRunSteps)
+    .where(eq(workflowRunSteps.runId, runId))
+    .orderBy(asc(workflowRunSteps.startedAt))
+  
+  return { run: runs[0], steps }
+}
+
+export async function createOrUpdateStepExecution({
+  runId,
+  stepId,
+  name,
+  type,
+  output,
+  status,
+  error,
+  startedAt,
+  endedAt,
+}: {
+  runId: string
+  stepId: string
+  name: string
+  type: string
+  output?: any
+  status?: "queued" | "running" | "completed" | "failed" | "skipped"
+  error?: any
+  startedAt?: Date | null
+  endedAt?: Date | null
+}) {
+  // Check if step exists
+  const existing = await db
+    .select({ id: workflowRunSteps.id })
+    .from(workflowRunSteps)
+    .where(and(eq(workflowRunSteps.runId, runId), eq(workflowRunSteps.stepId, stepId)))
+    .limit(1);
+
+  const patch: any = { runId, stepId, name, type }
+  if (output !== undefined) patch.output = output
+  if (status) patch.status = status
+  if (error !== undefined) patch.error = error
+  if (startedAt !== undefined) patch.startedAt = startedAt
+  if (endedAt !== undefined) patch.endedAt = endedAt
+
+  if (existing.length === 0) {
+    // Create new step
+    patch.id = `${runId}_${stepId}`;
+    patch.attempt = 0;
+    patch.maxAttempts = 1;
+    patch.deps = [];
+    await db.insert(workflowRunSteps).values(patch);
+  } else {
+    // Update existing step
+    await db
+      .update(workflowRunSteps)
+      .set(patch)
+      .where(and(eq(workflowRunSteps.runId, runId), eq(workflowRunSteps.stepId, stepId)));
+  }
+}
+
 

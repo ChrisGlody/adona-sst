@@ -39,6 +39,7 @@ export const tools = pgTable("tools", {
   outputSchema: jsonb("output_schema"),
   implementation: text("implementation"), // inline code (string) OR http url OR S3 key
   lambdaArn: text("lambda_arn"), // if per-tool lambda
+  executionEnv: varchar("execution_env", { length: 10 }).default("db").notNull(),
   owner: varchar("owner", { length: 160 }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -70,12 +71,16 @@ export const workflows = pgTable(
     description: text("description"),
     definitionVersion: integer("definition_version").default(1).notNull(),
     definition: jsonb("definition").notNull(),
+    executionEnv: varchar("execution_env", { length: 10 }).default("db").notNull(),
+    inputSchema: jsonb("input_schema"),
+    outputSchema: jsonb("output_schema"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     ownerIdx: index("workflows_owner_idx").on(t.owner),
     updatedIdx: index("workflows_updated_at_idx").on(t.updatedAt),
+    executionEnvIdx: index("workflows_execution_env_idx").on(t.executionEnv),
   })
 );
 

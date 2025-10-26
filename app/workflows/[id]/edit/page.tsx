@@ -116,13 +116,27 @@ export default function EditWorkflowPage() {
         ...(wf?.definition?.edges?.find((d: any) => d.id === e.id) || {}),
       })),
     };
+
+    const payload = {
+      id,
+      name: wf?.name || "Workflow",
+      description: wf?.description,
+      executionEnv: wf?.executionEnv || "db",
+      inputSchema: wf?.inputSchema,
+      outputSchema: wf?.outputSchema,
+      definition,
+    };
+
     const res = await fetch("/api/workflows", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name: wf?.name || "Workflow", definition }),
+      body: JSON.stringify(payload),
     });
     setSaving(false);
-    if (!res.ok) alert("Save failed");
+    if (!res.ok) {
+      const error = await res.json();
+      alert(`Save failed: ${error.error || "Unknown error"}`);
+    }
   }
 
   function addNode(type: string) {
@@ -187,9 +201,89 @@ export default function EditWorkflowPage() {
             <Button onClick={() => addNode("tool")}>Add Tool</Button>
             <Button onClick={() => addNode("inline")}>Add Inline</Button>
             <Button onClick={() => addNode("http")}>Add HTTP</Button>
+            <Button onClick={() => addNode("memory")}>Add Memory</Button>
             <Button variant="secondary" onClick={save} disabled={saving}>
               {saving ? "Saving..." : "Save"}
             </Button>
+          </Card>
+
+          <Card className="p-3 space-y-3">
+            <div className="font-medium">Workflow Settings</div>
+
+            {/* Workflow Description */}
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <textarea
+                className="w-full p-2 border rounded h-20"
+                value={wf?.description || ""}
+                onChange={(e) => setWf({ ...wf, description: e.target.value })}
+                placeholder="Describe what this workflow does for AI discovery..."
+              />
+            </div>
+
+            {/* Execution Environment */}
+            <div>
+              <label className="text-sm font-medium">
+                Execution Environment
+              </label>
+              <select
+                className="w-full p-2 border rounded"
+                value={wf?.executionEnv || "db"}
+                onChange={(e) => setWf({ ...wf, executionEnv: e.target.value })}
+              >
+                <option value="db">Database (AI-driven)</option>
+                <option value="s3">S3 + Lambda (automatic)</option>
+              </select>
+              <div className="text-xs text-muted-foreground mt-1">
+                {wf?.executionEnv === "db"
+                  ? "AI agent executes each step individually"
+                  : "Steps run automatically via Lambda orchestration"}
+              </div>
+            </div>
+
+            {/* Workflow Input Schema */}
+            <div>
+              <label className="text-sm font-medium">Input Schema</label>
+              <Editor
+                height="120px"
+                defaultLanguage="json"
+                value={JSON.stringify(
+                  wf?.inputSchema || { type: "object", properties: {} },
+                  null,
+                  2
+                )}
+                onChange={(v) => {
+                  try {
+                    const schema = JSON.parse(v || "{}");
+                    setWf({ ...wf, inputSchema: schema });
+                  } catch (e) {
+                    // Invalid JSON, keep current value
+                  }
+                }}
+              />
+            </div>
+
+            {/* Workflow Output Schema */}
+            <div>
+              <label className="text-sm font-medium">Output Schema</label>
+              <Editor
+                height="120px"
+                defaultLanguage="json"
+                value={JSON.stringify(
+                  wf?.outputSchema || { type: "object", properties: {} },
+                  null,
+                  2
+                )}
+                onChange={(v) => {
+                  try {
+                    const schema = JSON.parse(v || "{}");
+                    setWf({ ...wf, outputSchema: schema });
+                  } catch (e) {
+                    // Invalid JSON, keep current value
+                  }
+                }}
+              />
+            </div>
           </Card>
 
           <Card className="p-3 space-y-3">
@@ -222,6 +316,7 @@ export default function EditWorkflowPage() {
                   <option value="tool">Tool</option>
                   <option value="inline">Inline</option>
                   <option value="http">HTTP</option>
+                  <option value="memory">Memory</option>
                 </select>
 
                 {/* Tool selection */}
@@ -268,6 +363,44 @@ export default function EditWorkflowPage() {
                       onChange={(e) => updateNodeDef({ url: e.target.value })}
                       placeholder="https://..."
                     />
+                  </div>
+                )}
+
+                {/* Memory Operation */}
+                {currentNodeDef.type === "memory" && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium">Operation</label>
+                      <select
+                        className="w-full p-2 border rounded"
+                        value={currentNodeDef.operation || "search"}
+                        onChange={(e) =>
+                          updateNodeDef({ operation: e.target.value })
+                        }
+                      >
+                        <option value="search">Search Memory</option>
+                        <option value="add">Add to Memory</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium">
+                        Query Expression
+                      </label>
+                      <Editor
+                        height="120px"
+                        defaultLanguage="javascript"
+                        value={
+                          currentNodeDef.queryExpression ||
+                          "context.workflowInput.query"
+                        }
+                        onChange={(v) => updateNodeDef({ queryExpression: v })}
+                      />
+                      <div className="text-xs text-muted-foreground mt-1">
+                        JS expression evaluated with context (workflowInput,
+                        stepOutputs, input)
+                      </div>
+                    </div>
                   </div>
                 )}
 

@@ -14,40 +14,60 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { name, description, inputSchema, outputSchema, code, type } = body;
+  const { name, description, inputSchema, outputSchema, code, type, executionEnv } = body;
   
   const id = uuidv4();
-  const bucketName = process.env.TOOLS_BUCKET_NAME!;
-  const s3 = new S3();
+  const env = executionEnv || "db";
 
-  // upload metadata + code to S3
-  await s3
-    .putObject({
-      Bucket: bucketName,
-      Key: `tools/${id}.json`,
-      Body: JSON.stringify({ id, name, description, inputSchema, outputSchema, implementation: `code/${id}.js`, type }),
-    })
-    .promise();
+  if (env === "s3") {
+    // Store in S3 (existing behavior)
+    const bucketName = process.env.TOOLS_BUCKET_NAME!;
+    const s3 = new S3();
 
-  await s3
-    .putObject({
-      Bucket: bucketName,
-      Key: `code/${id}.js`,
-      Body: code, // user-provided JS snippet that exports async function main(input)
-    })
-    .promise();
+    // upload metadata + code to S3
+    await s3
+      .putObject({
+        Bucket: bucketName,
+        Key: `tools/${id}.json`,
+        Body: JSON.stringify({ id, name, description, inputSchema, outputSchema, implementation: `code/${id}.js`, type }),
+      })
+      .promise();
 
-  await db.insert(tools).values({
-    id: id,
-    owner: user.sub,
-    name,
-    description,
-    type,
-    inputSchema,
-    outputSchema,
-    implementation: `s3://${bucketName}/code/${id}.js`,
-    createdAt: new Date(),
-  });
+    await s3
+      .putObject({
+        Bucket: bucketName,
+        Key: `code/${id}.js`,
+        Body: code, // user-provided JS snippet that exports async function main(input)
+      })
+      .promise();
 
-  return NextResponse.json({ ok: true, toolId: id });
+    await db.insert(tools).values({
+      id: id,
+      owner: user.sub,
+      name,
+      description,
+      type,
+      inputSchema,
+      outputSchema,
+      implementation: `s3://${bucketName}/code/${id}.js`,
+      executionEnv: env,
+      createdAt: new Date(),
+    });
+  } else {
+    // Store in database only (AI-driven)
+    await db.insert(tools).values({
+      id: id,
+      owner: user.sub,
+      name,
+      description,
+      type,
+      inputSchema,
+      outputSchema,
+      implementation: code, // Store code directly in database
+      executionEnv: env,
+      createdAt: new Date(),
+    });
+  }
+
+  return NextResponse.json({ ok: true, toolId: id, executionEnv: env });
 }
