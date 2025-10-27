@@ -107,7 +107,8 @@ async function executeToolStep(
     return payload.result || payload
   } else if (tool.executionEnv === 'db' && tool.implementation) {
     // Execute inline code directly
-    return await executeInlineCode(tool.implementation, input, { userId })
+    // disable eslint for this line
+    return await executeInlineCode(tool.implementation, input, { stepOutputs: {}, workflowInput: input, userId })
   } else if (tool.type === 'http' && tool.implementation) {
     // Make HTTP request
     const res = await fetch(tool.implementation, {

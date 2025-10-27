@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     // Validate input against workflow input schema if provided
     if (workflow.inputSchema) {
       // Basic validation - could be enhanced with Ajv
-      if (workflow.inputSchema.type === 'object' && typeof input !== 'object') {
+      if ((workflow.inputSchema as any).type === 'object' && typeof input !== 'object') {
         return NextResponse.json({ 
           error: "Input does not match workflow input schema" 
         }, { status: 400 });
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
 
     // Analyze workflow to find first executable steps
     const nextSteps = getNextExecutableSteps(
-      workflow.definition,
+      workflow.definition as any,
       [], // No completed steps yet
       {}  // No step outputs yet
     );
