@@ -4,7 +4,7 @@ import { getRunStatus } from "@/lib/db/queries";
 
 export async function GET(
   req: Request,
-  { params }: { params: { runId: string } }
+  { params }: { params: Promise<{ runId: string }> }
 ) {
   const user = await getAuthUser();
   if (!user) {

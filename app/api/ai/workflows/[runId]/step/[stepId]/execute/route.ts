@@ -6,7 +6,7 @@ import { executeStep } from "@/lib/workflows/ai-step-executor";
 
 export async function POST(
   req: Request,
-  { params }: { params: { runId: string; stepId: string } }
+  { params }: { params: Promise<{ runId: string; stepId: string }> }
 ) {
   const user = await getAuthUser();
   if (!user) {
