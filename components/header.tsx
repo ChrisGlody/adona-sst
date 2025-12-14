@@ -43,6 +43,13 @@ export default function Header() {
           Adona
         </Link>
         <div className="ml-auto flex items-center gap-2">
+          {isAuthenticated && (
+            <Link href="/links">
+              <Button variant="ghost" className="h-8">
+                Dashboard
+              </Button>
+            </Link>
+          )}
           <Link href="/chat">
             <Button className="h-8">Chat</Button>
           </Link>

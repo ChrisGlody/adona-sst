@@ -41,7 +41,7 @@ export default function LoginPage() {
         });
       }
 
-      router.replace("/tools");
+      router.replace("/links");
     } catch (err: unknown) {
       console.error("Login error:", err);
       const errorName = (() => {
@@ -51,7 +51,7 @@ export default function LoginPage() {
         return "";
       })();
       if (errorName === "UserAlreadyAuthenticatedException") {
-        router.replace("/tools");
+        router.replace("/links");
         return;
       }
       setError("Login failed");
