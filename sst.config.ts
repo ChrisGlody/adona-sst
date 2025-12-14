@@ -69,6 +69,7 @@ export default $config({
         OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
         QDRANT_URL: process.env.QDRANT_URL!,
         QDRANT_API_KEY: process.env.QDRANT_API_KEY!,
+        HYBRID_SEARCH_API_URL: process.env.HYBRID_SEARCH_API_URL || "http://hybrid-publi-rrdjedjmqwu6-1689535120.us-east-1.elb.amazonaws.com",
         INTERNAL_API_BASE_URL: process.env.INTERNAL_API_BASE_URL!,
       },
     });
