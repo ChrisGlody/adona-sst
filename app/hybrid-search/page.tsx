@@ -570,9 +570,9 @@ export default function HybridSearchPage() {
                     <div className="text-sm font-medium mb-1">
                       ID: {result.id}
                     </div>
-                    {result.payload.title && (
+                    {result.payload.title as string && (
                       <div className="text-lg font-semibold mb-2">
-                        {result.payload.title}
+                        {result.payload.title as string}
                       </div>
                     )}
                     <div
